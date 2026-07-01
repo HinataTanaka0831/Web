@@ -77,6 +77,23 @@
             box-shadow: 0 0 25px rgba(236, 72, 153, 0.4);
             transform: translateY(-5px);
         }
+        
+        /* ==========================================
+           【追加箇所 1】タイトル用ネオンパチパチ明滅アニメーション (CSS)
+           ========================================== */
+        @keyframes neonFlicker {
+            0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+                text-shadow: 0 0 10px rgba(6, 182, 212, 0.8), 0 0 20px rgba(6, 182, 212, 0.4);
+                opacity: 1;
+            }
+            20%, 24%, 55% {
+                text-shadow: none;
+                opacity: 0.7;
+            }
+        }
+        .animate-flicker-cyan {
+            animation: neonFlicker 3s infinite alternate;
+        }
     </style>
 </head>
 <body class="w-screen h-screen relative flex items-center justify-center select-none overflow-hidden text-white">
@@ -90,8 +107,9 @@
 
     <!-- MAIN START SCREEN MENU -->
     <div id="startScreen" class="absolute z-20 flex flex-col items-center justify-center text-center px-4 max-w-xl transition-all duration-500">
-        <div class="bg-black/80 p-8 rounded-2xl border border-cyan-500/30 backdrop-blur-md neon-border-cyan">
-            <h1 class="font-orbitron text-4xl sm:text-5xl md:text-6xl font-black mb-1 neon-glow-cyan tracking-wider">NEON SLICE</h1>
+        <div class="bg-black/80 p-8 rounded-2xl border border-cyan-500/30 backdrop-blur-md neon-border-cyan flex flex-col items-center">
+            <!-- Animated neon title with flickering effect -->
+            <h1 class="font-orbitron text-4xl sm:text-5xl md:text-6xl font-black mb-1 animate-flicker-cyan tracking-wider text-cyan-400">NEON SLICE</h1>
             <p class="font-orbitron text-xl sm:text-2xl text-pink-500 mb-6 font-bold tracking-widest uppercase neon-glow-magenta">Chrono Dash</p>
             
             <p class="text-gray-300 text-sm sm:text-base leading-relaxed mb-6 font-medium">
@@ -212,6 +230,9 @@
             <button id="restartButton" class="neon-btn font-orbitron font-extrabold text-lg px-8 py-3 w-full bg-gradient-to-r from-red-600 to-rose-700 rounded-lg border border-red-500 shadow-md cursor-pointer transition-all">
                 <i class="fa-solid fa-rotate-right mr-2"></i>REBOOT SYSTEM (RETRY)
             </button>
+
+            <button id="menuButton" class="mt-4 neon-btn font-orbitron font-extrabold text-lg px-8 py-3 w-full bg-gradient-to-r from-cyan-700 to-blue-900 rounded-lg border border-gray-600 shadow-md cursor-pointer transition-all">
+                <i class="fa-solid fa-arrow-left mr-2"></i>RETURN TO MAIN MENU (TITLE)
         </div>
     </div>
 
@@ -412,6 +433,14 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
+        // Custom Player Image Loader
+        const playerImg = new Image();
+        playerImg.src = 'watermarked_img_17269524618206737862.png';
+        let playerImgLoaded = false;
+        playerImg.onload = () => {
+            playerImgLoaded = true;
+        };
+
         // Game Configuration & Global State variables
         let gameState = 'START'; // START, PLAYING, UPGRADE, GAMEOVER
         let width, height;
@@ -419,6 +448,19 @@
         let globalTimeScale = 1.0; // Dynamic speed manipulation (Slow Motion)
         let isChronoSlow = false;
         
+        // ==========================================
+        // 【追加箇所 3】トランジション（画面遷移）制御用オブジェクト (JavaScript)
+        // ==========================================
+        const transition = {
+            active: false,
+            timer: 0,
+            maxTimer: 36, // トランジション全体のフレーム数（約0.6秒）
+            phase: 'in', // 'in' = 暗転（閉まる）, 'out' = 明転（開く）
+            color: '#06b6d4',
+            message: 'SYNCHRONIZING SYSTEM...',
+            callback: null
+        };
+
         // Dynamic game play metrics
         let wave = 1;
         let score = 0;
@@ -497,6 +539,7 @@
         const startButton = document.getElementById('startButton');
         const gameOverScreen = document.getElementById('gameOverScreen');
         const restartButton = document.getElementById('restartButton');
+        const menuButton = document.getElementById('menuButton');
         const hpBar = document.getElementById('hpBar');
         const chronoBar = document.getElementById('chronoBar');
         const dashContainer = document.getElementById('dashContainer');
@@ -689,39 +732,105 @@
             return Math.atan2(p2.y - p1.y, p2.x - p1.x);
         }
 
-        // Segment line and Circle intersection math (Slash & Blade hit collision)
-        function checkLineCircleCollision(p1, p2, c, r) {
-            const l2 = Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2);
-            if (l2 === 0) return Math.pow(p1.x - c.x, 2) + Math.pow(p1.y - c.y, 2) <= r*r;
-            
-            // Projection factor t
-            let t = ((c.x - p1.x) * (p2.x - p1.x) + (c.y - p1.y) * (p2.y - p1.y)) / l2;
+        // Utility for handling line-to-circle collisions during dash attacks
+        function checkLineCircleCollision(p1, p2, circle, radius) {
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const lenSq = dx * dx + dy * dy;
+            if (lenSq === 0) {
+                const dist = Math.hypot(circle.x - p1.x, circle.y - p1.y);
+                return dist < radius;
+            }
+            let t = ((circle.x - p1.x) * dx + (circle.y - p1.y) * dy) / lenSq;
             t = Math.max(0, Math.min(1, t));
-            
-            const projectionX = p1.x + t * (p2.x - p1.x);
-            const projectionY = p1.y + t * (p2.y - p1.y);
-            
-            const distSq = Math.pow(projectionX - c.x, 2) + Math.pow(projectionY - c.y, 2);
-            return distSq <= r * r;
+            const closestX = p1.x + t * dx;
+            const closestY = p1.y + t * dy;
+            return Math.hypot(circle.x - closestX, circle.y - closestY) < radius;
         }
 
-        // Screen shake dispatcher
-        function triggerScreenShake(force, duration) {
-            screenShake.force = force;
+        // Screen shake activator helper
+        function triggerScreenShake(duration, force) {
             screenShake.duration = duration;
+            screenShake.force = force;
         }
 
-        // Spawn float combo messages helper
-        function triggerFloatingHUDMessage(text, isPink = true) {
-            hudAlertText.innerText = text;
-            hudAlertText.className = `font-orbitron text-2xl sm:text-3xl font-black ${isPink ? 'text-pink-500 neon-glow-magenta' : 'text-cyan-400 neon-glow-cyan'} tracking-widest`;
-            hudAlert.style.opacity = '1';
-            hudAlert.style.transform = 'translate(-50%, -50%) scale(1)';
+        // In-game global floating notification banner
+        let hudAlertTimeout = null;
+        function triggerFloatingHUDMessage(text, isWarning = false) {
+            if (!hudAlert || !hudAlertText) return;
+            if (hudAlertTimeout) clearTimeout(hudAlertTimeout);
             
-            setTimeout(() => {
-                hudAlert.style.opacity = '0';
-                hudAlert.style.transform = 'translate(-50%, -50%) scale(0.7)';
-            }, 1200);
+            hudAlertText.innerText = text;
+            if (isWarning) {
+                hudAlertText.className = "font-orbitron text-3xl sm:text-4xl font-black text-red-500 tracking-widest text-shadow-glow-red animate-pulse";
+            } else {
+                hudAlertText.className = "font-orbitron text-2xl sm:text-3xl font-black text-pink-500 tracking-widest neon-glow-magenta";
+            }
+            
+            hudAlert.classList.remove('opacity-0', 'scale-75');
+            hudAlert.classList.add('opacity-100', 'scale-100');
+            
+            hudAlertTimeout = setTimeout(() => {
+                hudAlert.classList.remove('opacity-100', 'scale-100');
+                hudAlert.classList.add('opacity-0', 'scale-75');
+            }, 2200);
+        }
+
+        // ==========================================
+        // 【追加箇所 4】トランジション実行・描画用メソッド (JavaScript)
+        // ==========================================
+        function triggerSceneTransition(color, message, callback) {
+            transition.active = true;
+            transition.timer = 0;
+            transition.phase = 'in';
+            transition.color = color;
+            transition.message = message;
+            transition.callback = callback;
+        }
+
+        function drawSceneTransition() {
+            if (!transition.active) return;
+            
+            ctx.save();
+            let progress = 0;
+            if (transition.phase === 'in') {
+                progress = transition.timer / (transition.maxTimer / 2);
+            } else {
+                progress = 1 - (transition.timer - transition.maxTimer / 2) / (transition.maxTimer / 2);
+            }
+            progress = Math.max(0, Math.min(1, progress));
+
+            // 電子シャッター（複数の横帯がスライドする演出）
+            ctx.fillStyle = transition.color;
+            ctx.globalAlpha = progress;
+            
+            const barCount = 12;
+            const barHeight = height / barCount;
+            for (let i = 0; i < barCount; i++) {
+                const offset = (i % 2 === 0) ? (1 - progress) * width : -(1 - progress) * width;
+                ctx.fillRect(offset, i * barHeight, width, barHeight + 1.5);
+                
+                // シャッター先端の光るエフェクト線
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                if (i % 2 === 0) {
+                    ctx.fillRect(offset + width - 4, i * barHeight, 4, barHeight + 1.5);
+                } else {
+                    ctx.fillRect(offset, i * barHeight, 4, barHeight + 1.5);
+                }
+                ctx.fillStyle = transition.color;
+            }
+
+            // トランジション中央に表示される「同期メッセージ」
+            if (progress > 0.85) {
+                ctx.fillStyle = '#ffffff';
+                ctx.font = "bold 20px 'Orbitron'";
+                ctx.textAlign = 'center';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = transition.color;
+                ctx.fillText(transition.message, width / 2, height / 2);
+            }
+
+            ctx.restore();
         }
 
         function spawnParticle(x, y, color, count = 1, force = 6) {
@@ -891,7 +1000,11 @@
             triggerFloatingHUDMessage(`CYBER CORE UPGRADED`, false);
             
             wave++;
-            startNextWave();
+            
+            // Apply transitional flash to the next wave starting
+            triggerSceneTransition('#06b6d4', `BOOTING WAVE ${wave}...`, () => {
+                startNextWave();
+            });
         }
 
         const ENEMY_TYPES = {
@@ -996,7 +1109,7 @@
         function initGame() {
             synth.init();
             
-            gameState = 'PLAYING';
+            // Reset Core Game Elements first
             wave = 1;
             score = 0;
             enemiesKillsCount = 0;
@@ -1024,19 +1137,43 @@
                 leechSlash: 0
             };
 
-            // Setup elements
-            startScreen.classList.add('hidden');
-            gameOverScreen.classList.add('hidden');
-            hud.classList.remove('hidden');
-
-            startNextWave();
+            // Trigger smooth transition out of Title/GameOver overlays
+            triggerSceneTransition('#06b6d4', 'SYNCHRONIZING SYSTEM...', () => {
+                startScreen.classList.add('hidden');
+                gameOverScreen.classList.add('hidden');
+                hud.classList.remove('hidden');
+                
+                startNextWave();
+            });
         }
 
         // Apply visual button binders
         startButton.addEventListener('click', initGame);
         restartButton.addEventListener('click', initGame);
+        menuButton.addEventListener('click', () => {
+            gameState = 'START';
+            startScreen.classList.remove('hidden');
+            gameOverScreen.classList.add('hidden');
+            hud.classList.add('hidden');
+        });
 
         function updateGame(deltaTime) {
+            // Manage Screen Transition Timers independently of hitStop
+            if (transition.active) {
+                transition.timer++;
+                if (transition.phase === 'in') {
+                    if (transition.timer >= transition.maxTimer / 2) {
+                        transition.phase = 'out';
+                        if (transition.callback) {
+                            transition.callback();
+                            transition.callback = null;
+                        }
+                    }
+                } else if (transition.timer >= transition.maxTimer) {
+                    transition.active = false;
+                }
+            }
+
             if (gameState !== 'PLAYING') return;
 
             // Manage time scale factors under Chrono slow
@@ -1400,11 +1537,14 @@
             // Decay combo instantly on getting hit
             player.comboMultiplier = Math.max(1.0, player.comboMultiplier - 0.5);
 
-            if (player.health <= 0) {
-                player.health = 0;
-                gameOver();
+               if (player.health <= 0) {
+                  player.health = 0;
+                  // Trigger Scene Transition when player dies to slide to Game Over screen smoothly
+                  triggerSceneTransition('#f43f5e', 'DECRYPTING CORRUPTION...', () => {});
+                  gameOver();
+
+                }
             }
-        }
 
         function gameOver() {
             gameState = 'GAMEOVER';
@@ -1529,24 +1669,56 @@
                 ctx.stroke();
             }
 
-            // Player body representation
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
-            ctx.fill();
+            const aimAngle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+            const facingRight = Math.cos(aimAngle) >= 0;
 
-            // Slicing inner cyan ring
-            ctx.strokeStyle = '#06b6d4';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(player.x, player.y, player.radius - 4, 0, Math.PI * 2);
-            ctx.stroke();
+            if (playerImgLoaded) {
+                // Circular clipped avatar of the SD robot swordsman
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, player.radius * 1.3, 0, Math.PI * 2);
+                ctx.clip();
+
+                // Crop details for the character from watermarked_img_17269524618206737862.png (1024x576)
+                const sw = 380;
+                const sh = 380;
+                const sx = 512 - sw / 2;
+                const sy = 288 - sh / 2 - 25; // Focus higher to center player helmet/visor
+
+                ctx.translate(player.x, player.y);
+                if (!facingRight) {
+                    ctx.scale(-1, 1); // Flip player to face aiming target
+                }
+
+                const r = player.radius * 1.35;
+                ctx.drawImage(playerImg, sx, sy, sw, sh, -r, -r, r * 2, r * 2);
+                ctx.restore();
+
+                // Outer neon boundary ring
+                ctx.strokeStyle = '#06b6d4';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, player.radius * 1.3, 0, Math.PI * 2);
+                ctx.stroke();
+            } else {
+                // Fallback retro shapes
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Slicing inner cyan ring
+                ctx.strokeStyle = '#06b6d4';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, player.radius - 4, 0, Math.PI * 2);
+                ctx.stroke();
+            }
 
             // Core directional reticle
-            const aimAngle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
             ctx.fillStyle = '#ec4899';
             ctx.beginPath();
-            ctx.arc(player.x + Math.cos(aimAngle) * (player.radius + 3), player.y + Math.sin(aimAngle) * (player.radius + 3), 4, 0, Math.PI * 2);
+            ctx.arc(player.x + Math.cos(aimAngle) * (player.radius + 5), player.y + Math.sin(aimAngle) * (player.radius + 5), 5, 0, Math.PI * 2);
             ctx.fill();
             
             ctx.restore();
@@ -1563,6 +1735,56 @@
             });
 
             ctx.restore(); // Restore shake transforms
+
+            // G. Draw Active Scene Transition Shutter
+            drawSceneTransition();
+        }
+
+        // Canvas Scene Transition rendering helper
+        function drawSceneTransition() {
+            if (!transition.active) return;
+            
+            ctx.save();
+            let progress = 0;
+            if (transition.phase === 'in') {
+                progress = transition.timer / (transition.maxTimer / 2);
+            } else {
+                progress = 1 - (transition.timer - transition.maxTimer / 2) / (transition.maxTimer / 2);
+            }
+            progress = Math.max(0, Math.min(1, progress));
+
+            // Custom futuristic sliding horizontal cyber shutters
+            ctx.fillStyle = transition.color;
+            ctx.globalAlpha = progress;
+            
+            const barCount = 12;
+            const barHeight = height / barCount;
+            for (let i = 0; i < barCount; i++) {
+                // Alternating slide-in shutter bars
+                const offset = (i % 2 === 0) ? (1 - progress) * width : -(1 - progress) * width;
+                ctx.fillRect(offset, i * barHeight, width, barHeight + 1.5);
+                
+                // Extra glowing cyan edge lines
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                if (i % 2 === 0) {
+                    ctx.fillRect(offset + width - 4, i * barHeight, 4, barHeight + 1.5);
+                } else {
+                    ctx.fillRect(offset, i * barHeight, 4, barHeight + 1.5);
+                }
+                ctx.fillStyle = transition.color; // restore default shutter color
+            }
+
+            // Transition text overlay
+            if (progress > 0.85) {
+                ctx.fillStyle = '#ffffff';
+                ctx.font = "bold 20px 'Orbitron'";
+                ctx.textAlign = 'center';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = transition.color;
+                ctx.fillText(transition.message, width / 2, height / 2);
+            }
+
+            ctx.restore();
         }
 
         function updateHUD() {
