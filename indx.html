@@ -108,10 +108,6 @@
     <!-- MAIN START SCREEN MENU -->
     <div id="startScreen" class="absolute z-20 flex flex-col items-center justify-center text-center px-4 max-w-xl transition-all duration-500">
         <div class="bg-black/80 p-8 rounded-2xl border border-cyan-500/30 backdrop-blur-md neon-border-cyan flex flex-col items-center">
-<<<<<<< HEAD
-=======
-            
->>>>>>> d8b4d89b0d56128bacb397bd51b2fe1b8dcce8e0
             <!-- Animated neon title with flickering effect -->
             <h1 class="font-orbitron text-4xl sm:text-5xl md:text-6xl font-black mb-1 animate-flicker-cyan tracking-wider text-cyan-400">NEON SLICE</h1>
             <p class="font-orbitron text-xl sm:text-2xl text-pink-500 mb-6 font-bold tracking-widest uppercase neon-glow-magenta">Chrono Dash</p>
@@ -127,7 +123,7 @@
                     <p class="text-pink-400 font-bold"><i class="fa-solid fa-gamepad mr-2"></i>PC操作:</p>
                     <div><span class="bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-500/40">W/A/S/D</span> 移動</div>
                     <div><span class="bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-500/40">マウス移動</span> 照準</div>
-                    <div><span class="bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-500/40">左クリック</span> ダッシュスラッシュ</div>
+                    <div><span class="bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-500/40">左クリック</span> ダッシュ・スラッシュ</div>
                     <div><span class="bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-500/40">Space / 右クリック</span> 時間減速</div>
                 </div>
                 <div class="space-y-2">
@@ -235,11 +231,7 @@
                 <i class="fa-solid fa-rotate-right mr-2"></i>REBOOT SYSTEM (RETRY)
             </button>
 
-<<<<<<< HEAD
             <button id="menuButton" class="mt-4 neon-btn font-orbitron font-extrabold text-lg px-8 py-3 w-full bg-gradient-to-r from-cyan-700 to-blue-900 rounded-lg border border-gray-600 shadow-md cursor-pointer transition-all">
-=======
-            <button id="titleButton" class="mt-4 neon-btn font-orbitron font-extrabold text-lg px-8 py-3 w-full bg-gradient-to-r from-cyan-700 to-blue-900 rounded-lg border border-blue-600 shadow-md cursor-pointer transition-all">
->>>>>>> d8b4d89b0d56128bacb397bd51b2fe1b8dcce8e0
                 <i class="fa-solid fa-arrow-left mr-2"></i>RETURN TO MAIN MENU (TITLE)
         </div>
     </div>
@@ -547,11 +539,7 @@
         const startButton = document.getElementById('startButton');
         const gameOverScreen = document.getElementById('gameOverScreen');
         const restartButton = document.getElementById('restartButton');
-<<<<<<< HEAD
         const menuButton = document.getElementById('menuButton');
-=======
-        const titleButton = document.getElementById('titleButton');
->>>>>>> d8b4d89b0d56128bacb397bd51b2fe1b8dcce8e0
         const hpBar = document.getElementById('hpBar');
         const chronoBar = document.getElementById('chronoBar');
         const dashContainer = document.getElementById('dashContainer');
@@ -1162,13 +1150,8 @@
         // Apply visual button binders
         startButton.addEventListener('click', initGame);
         restartButton.addEventListener('click', initGame);
-<<<<<<< HEAD
         menuButton.addEventListener('click', () => {
             gameState = 'START';
-=======
-        titleButton.addEventListener('click', () => {
-            gameState = 'TITLE';
->>>>>>> d8b4d89b0d56128bacb397bd51b2fe1b8dcce8e0
             startScreen.classList.remove('hidden');
             gameOverScreen.classList.add('hidden');
             hud.classList.add('hidden');
@@ -1554,7 +1537,6 @@
             // Decay combo instantly on getting hit
             player.comboMultiplier = Math.max(1.0, player.comboMultiplier - 0.5);
 
-<<<<<<< HEAD
                if (player.health <= 0) {
                   player.health = 0;
                   // Trigger Scene Transition when player dies to slide to Game Over screen smoothly
@@ -1562,15 +1544,6 @@
                   gameOver();
 
                 }
-=======
-            if (player.health <= 0) {
-                player.health = 0;
-                
-                // Trigger Scene Transition when player dies to slide to Game Over screen smoothly
-                triggerSceneTransition('#f43f5e', 'DECRYPTING CORRUPTION...', () => {
-                    gameOver();
-                });
->>>>>>> d8b4d89b0d56128bacb397bd51b2fe1b8dcce8e0
             }
 
         function gameOver() {
